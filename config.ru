@@ -1,0 +1,3 @@
+require 'equanimity'
+run Equanimity
+
