@@ -98,26 +98,6 @@ module Equanimity::Models
       drop_table Entry.table_name
     end
   end
-  class RockOn < V 2.0
-    def self.up
-      rename_column Entry.table_name, :key, :entry_key
-      rename_column Entry.table_name, :value, :entry_value
-    end
-    def self.down
-      rename_column Entry.table_name, :entry_key, :key
-      rename_column Entry.table_name, :entry_value, :value
-    end
-  end
-  class BackAtcha < V 3.0
-    def self.up
-      rename_column Entry.table_name, :entry_key, :key
-      rename_column Entry.table_name, :entry_value, :value
-    end
-    def self.down
-      rename_column Entry.table_name, :key, :entry_key
-      rename_column Entry.table_name, :value, :entry_value
-    end
-  end
 end
 
 
@@ -128,27 +108,41 @@ module Equanimity::Views
         title "../|equanimity|\...?"
       end
       body do
-        h1 { 
-          a  "...(-:equanimity:-)...?" , :href => R(Index)
-        }
-        self << yield 
+        table  do
+          tr do
+            td :colspan => 2, :style => "background-color: #AA9" do
+              h1 do
+                a  "...(-:equanimity:-)...?" , :href => R(Index)
+              end
+            end
+          end
+          tr do
+            td :width => '100px',:style => "background-color: #FFC; padding: 30px" do
+              p { a "new entry for today", :href => R(NewDay)}
+              p { a "new entry for when?", :href => R(ChooseNewDay) }
+              p { a "list all days", :href => R(List) }
+            end
+            td :width => '700px',:style => "background-color: #DDC; padding: 30px" do
+              self << yield 
+            end
+          end
+        end
       end
     end
   end
 
   def index
     h2 "here's the index, yo"
-    p { a "new entry for today", :href => R(NewDay)}
-    p { a "new entry for when?", :href => R(ChooseNewDay) }
-    p { a "list all days", :href => R(List) }
   end
 
   def choose_new_day
     h2 "what day do you want to enter?"
     form :action => R(ChooseNewDay), :method => :post do
-      p { text "year:"; input :name => "year", :value => @day.year }
-      p { text "month:"; input :name => "month", :value => @day.month }
-      p { text "day:"; input :name => "day", :value => @day.day }
+      table do
+        tr { td "year:"; td {input :name => "year", :value => @day.year }}
+        tr { td "month:"; td {input :name => "month", :value => @day.month }}
+        tr { td "day:"; td{input :name => "day", :value => @day.day }}
+      end
       p { input :type => 'submit', :value => 'take me there' }
     end
   end
@@ -157,7 +151,6 @@ module Equanimity::Views
     @keys = @entries.map { |e| e.key }.uniq.sort
     @days = @entries.map { |e| e.date }.uniq.sort
     h2 "here's all your days, yo."
-    p { a "new entry for today", :href => R(NewDay)}
     table
     tr do 
       th "_-'-.day.-'-_"
