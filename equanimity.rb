@@ -2,7 +2,7 @@ require 'rubygems'
 require 'camping'
 require 'date'
 
-require 'active_record'
+require 'activerecord'
 
 dbconfig = YAML.load(File.read('config/database.yml'))
 ActiveRecord::Base.establish_connection dbconfig['production']
