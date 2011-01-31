@@ -1,4 +1,5 @@
 GEM
+  remote: http://rubygems.org/
   specs:
     camping (2.1)
       rack (>= 1.0)
