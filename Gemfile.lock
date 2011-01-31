@@ -16,6 +16,8 @@ GEM
     camping (2.1)
       rack (>= 1.0)
     i18n (0.5.0)
+    markaby (0.7.1)
+      builder (>= 2.0.0)
     rack (1.2.1)
     tzinfo (0.3.24)
 
@@ -25,3 +27,4 @@ PLATFORMS
 DEPENDENCIES
   activerecord
   camping
+  markaby
