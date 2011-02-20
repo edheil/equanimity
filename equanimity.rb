@@ -169,7 +169,7 @@ module Equanimity::Views
         i = 0
       url="https://chart.googleapis.com/chart?" +
         [ "cht=bvg",
-          "chs=600x200",
+          "chs=1000x200",
           "chd=t:"+data.join(","),
           "chds=0.0,#{maxforkey}",
           "chxt=y,x,x,x,x",
