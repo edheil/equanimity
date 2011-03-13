@@ -237,7 +237,7 @@ ENDJS
     
     csv = %Q("day")
     @keys.each { |k| 
-      csv << %Q(",#{k}")
+      csv << %Q(,"#{k}")
     }  
     csv << "\n";
   
