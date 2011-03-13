@@ -22,6 +22,13 @@ module Equanimity::Controllers
     end
   end
 
+  class Csv
+    def get
+      @entries = Entry.find(:all)
+      render :csv
+    end
+  end
+
   class ChooseNewDay
     def get
       @day = Date.today
@@ -119,6 +126,7 @@ module Equanimity::Views
               p { a "new entry for today", :href => R(NewDay)}
               p { a "new entry for when?", :href => R(ChooseNewDay) }
               p { a "list all days", :href => R(List) }
+              p { a "csv days", :href => R(Csv) }
             end
             td :width => '700px',:style => "background-color: #DDC; padding: 30px" do
               self << yield 
@@ -220,6 +228,31 @@ ENDJS
         end
       end
     end
+  end
+
+  def csv
+    @keys = @entries.map { |e| e.key }.uniq.sort
+    @days = @entries.map { |e| e.date }.uniq.sort
+    @all_days = (@days.first .. @days.last).to_a
+    
+    csv = %Q("day")
+    @keys.each { |k| 
+      csv << %Q(",#{k}")
+    }  
+    csv << "\n";
+  
+    @days.each do |d|
+      csv << %Q("#{d}")
+      @keys.each do |k|
+        maybe_e4k = (e4k = @entries.find { |e| e.date == d and  e.key == k } and e4k.value)
+        csv << %Q(,"#{maybe_e4k}")
+      end
+      csv << "\n"
+    end
+    pre {
+      csv
+    }
+    
   end
 
   def edit_day
