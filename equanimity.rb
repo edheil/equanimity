@@ -112,6 +112,16 @@ module Equanimity::Controllers
     end
   end
 
+  class ChangePassword
+    def get
+      if @current_user = User.current_user(@state.session_key)
+        render :change_password
+      else
+        redirect Index
+      end
+    end
+  end
+
   class Account
     def post
       if @input['submit'] == 'Logout'
@@ -244,20 +254,13 @@ module Equanimity::Views
               p { a "new entry for when?", :href => R(ChooseNewDay) }
               p { a "list all days", :href => R(List) }
               p { a "csv days", :href => R(Csv) }
-              
+              if @current_user
+                p { a "change password", :href => R(ChangePassword) }
+              end
               div do
                 form :action => R(Account), :method => :post do
                   if @current_user
                     input(:type => :submit, :name => :submit, :value => "Logout")
-                    div do
-                      text "old password: "
-                      input(:type => :password, :name => :old_password)
-                    end
-                    div do
-                      text "new password: "
-                      input(:type => :password, :name => :new_password)
-                      input(:type => :submit, :name => :submit, :value => "Change Password")
-                    end
                   else
                     p "you are not currently logged in."
                     div do
@@ -288,6 +291,22 @@ module Equanimity::Views
 
   def index
     h2 "here's the index, yo"
+  end
+
+  def change_password
+    form :action => R(Account), :method => :post do
+      div do
+        div do
+          text "old password: "
+          input(:type => :password, :name => :old_password)
+        end
+        div do
+          text "new password: "
+          input(:type => :password, :name => :new_password)
+        end
+        input(:type => :submit, :name => :submit, :value => "Change Password")
+      end
+    end
   end
 
   def choose_new_day
