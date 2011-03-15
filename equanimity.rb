@@ -121,6 +121,19 @@ module Equanimity::Controllers
         else
           message "You were never logged in, brah."
         end
+      elsif @input['submit'] == 'Change Password'
+        if @user = User.current_user(@state.session_key) 
+          if @user.valid_pass?( @input.old_password )
+            @user.set_pass( @input.new_password )
+            @user.save
+            message "Successfully changed password."
+          else
+            message "Old password incorrect."
+          end
+        else
+          message 'You\'re not even logged in; how can you change a password?'
+        end
+        redirect R(Index)
       elsif @input['submit'] == 'Login'
         @user = User.find_by_name(@input.name)
         @user = nil unless @user.valid_pass?( @input.password )
@@ -231,27 +244,35 @@ module Equanimity::Views
               p { a "new entry for when?", :href => R(ChooseNewDay) }
               p { a "list all days", :href => R(List) }
               p { a "csv days", :href => R(Csv) }
-
-    div do
-      form :action => R(Account), :method => :post do
-        if @current_user
-          input(:type => :submit, :name => :submit, :value => "Logout")
-        else
-          p "you are not currently logged in."
-          div do
-            text "name: "
-            input(:type => :text, :name => :name)
-          end
-          div do
-            text "password: "
-            input(:type => :password, :name => :password)
-          end
-          input(:type => :submit, :name => :submit, :value => "Login")
-          input(:type => :submit, :name => :submit, :value => "New User")
-        end
-      end
-    end
-
+              
+              div do
+                form :action => R(Account), :method => :post do
+                  if @current_user
+                    input(:type => :submit, :name => :submit, :value => "Logout")
+                    div do
+                      text "old password: "
+                      input(:type => :password, :name => :old_password)
+                    end
+                    div do
+                      text "new password: "
+                      input(:type => :password, :name => :new_password)
+                      input(:type => :submit, :name => :submit, :value => "Change Password")
+                    end
+                  else
+                    p "you are not currently logged in."
+                    div do
+                      text "name: "
+                      input(:type => :text, :name => :name)
+                    end
+                    div do
+                      text "password: "
+                      input(:type => :password, :name => :password)
+                    end
+                    input(:type => :submit, :name => :submit, :value => "Login")
+                    input(:type => :submit, :name => :submit, :value => "New User")
+                  end
+                end
+              end
             end
             td :width => '700px',:style => "background-color: #DDC; padding: 30px" do
               if @state['message']
