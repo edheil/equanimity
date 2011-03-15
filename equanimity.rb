@@ -224,7 +224,6 @@ module Equanimity::Views
     div do
       form :action => R(Account), :method => :post do
         if @current_user
-          p "current user is #{current_user.name}"
           input(:type => :submit, :name => :submit, :value => "Logout")
         else
           p "you are not currently logged in."
