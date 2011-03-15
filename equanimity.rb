@@ -121,7 +121,8 @@ module Equanimity::Controllers
           message "You were never logged in, brah."
         end
       elsif @input['submit'] == 'Login'
-        @user = User.find_by_name_and_password(@input.name, @input.password)
+        @user = User.find_by_name(@input.name)
+        @user = nil unless @user.valid_pass?( @input.password )
         if @user
           @state.session_key = @user.get_logged_in
           message "Nicely logged in, #{@input.name}."
@@ -129,8 +130,8 @@ module Equanimity::Controllers
           message "no dice logging in as #{@input.name}"
         end
       elsif @input['submit'] == 'New User'
-        @user = User.new(:name => @input.name, 
-                         :password => @input.password)
+        @user = User.new(:name => @input.name)
+        @user.set_pass(@input.password)
         if @user.save
           @state.session_key = @user.get_logged_in
           message "welcome to the glories of userhood, #{@input.name}."
@@ -154,6 +155,12 @@ module Equanimity::Models
     def get_logged_out
       self.session_key = nil
       save
+    end
+    def valid_pass?(pass)
+      self.password == pass
+    end
+    def set_pass(pass)
+      self.password = pass
     end
     def self.current_user(session_key)
       if session_key
