@@ -30,14 +30,14 @@ end
 module Equanimity::Controllers
   class Index < R '/'
     def get
-    @current_user = User.find_by_session_key(@state.session_key)
+    @current_user = User.current_user(@state.session_key)
       render :index
     end
   end
 
   class List
     def get
-    @current_user = User.find_by_session_key(@state.session_key)
+    @current_user = User.current_user(@state.session_key)
       @entries = Entry.find(:all)
       render :list
     end
@@ -45,7 +45,7 @@ module Equanimity::Controllers
 
   class Csv
     def get
-    @current_user = User.find_by_session_key(@state.session_key)
+    @current_user = User.current_user(@state.session_key)
       @entries = Entry.find(:all)
       render :csv
     end
@@ -53,7 +53,7 @@ module Equanimity::Controllers
 
   class ChooseNewDay
     def get
-    @current_user = User.find_by_session_key(@state.session_key)
+    @current_user = User.current_user(@state.session_key)
       @day = Date.today
       render :choose_new_day
     end
@@ -64,13 +64,13 @@ module Equanimity::Controllers
 
   class EditDayNNN
     def get(y,m,d)
-    @current_user = User.find_by_session_key(@state.session_key)
+    @current_user = User.current_user(@state.session_key)
       @day= Date.civil(y.to_i,m.to_i,d.to_i)
       @entries = Entry.find(:all)
       render :edit_day
     end
     def post(y,m,d)
-    @current_user = User.find_by_session_key(@state.session_key)
+    @current_user = User.current_user(@state.session_key)
       @day= Date.civil(y.to_i,m.to_i,d.to_i)
 
       # work through input see what we're gonna do
@@ -104,7 +104,7 @@ module Equanimity::Controllers
 
   class NewDay
     def get
-    @current_user = User.find_by_session_key(@state.session_key)
+    @current_user = User.current_user(@state.session_key)
       @day = Date.today
       @entries = Entry.find(:all)
       render :edit_day
@@ -114,7 +114,7 @@ module Equanimity::Controllers
   class Account
     def post
       if @input['submit'] == 'Logout'
-        if @user = User.find_by_session_key(@state.session_key)
+        if @user = User.current_user(@state.session_key)
           @user.get_logged_out
           message "Successfully logged out #{@user.name}"
         else
@@ -147,13 +147,20 @@ module Equanimity::Models
   class User < Base
     validates_uniqueness_of :name, :message => " has already been taken."
     def get_logged_in
-      self.session_key = rand(99999999999)
+      self.session_key = "#{rand(99999999999)}"
       save
       return self.session_key
     end
     def get_logged_out
       self.session_key = nil
       save
+    end
+    def self.current_user(session_key)
+      if session_key
+        find_by_session_key(session_key)
+      else
+        nil
+      end
     end
   end
 
