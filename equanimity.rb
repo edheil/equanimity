@@ -3,6 +3,7 @@ require 'camping'
 require 'date'
 require 'active_record'
 require 'camping/session'
+require 'digest/sha1'
 
 dbconfig = YAML.load(File.read('config/database.yml'))
 ActiveRecord::Base.establish_connection dbconfig['production']
@@ -157,10 +158,13 @@ module Equanimity::Models
       save
     end
     def valid_pass?(pass)
-      self.password == pass
+      #self.password == pass
+      self.salted_pass == Digest::SHA1.hexdigest(self.salt + pass)
     end
     def set_pass(pass)
-      self.password = pass
+      self.salt = "#{rand(9999999999)}"
+      self.salted_pass = Digest::SHA1.hexdigest(self.salt + pass)
+      # self.save ?
     end
     def self.current_user(session_key)
       if session_key
@@ -414,4 +418,5 @@ end
 # def Equanimity.create
 #   Equanimity::Models.create_schema
 # end
+
 
