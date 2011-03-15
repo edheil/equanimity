@@ -2,21 +2,42 @@ require 'rubygems'
 require 'camping'
 require 'date'
 require 'active_record'
+require 'camping/session'
 
 dbconfig = YAML.load(File.read('config/database.yml'))
 ActiveRecord::Base.establish_connection dbconfig['production']
 
 Camping.goes :Equanimity
 
+module Equanimity
+  set :secret, "HEYO"
+  include Camping::Session
+end
+
+module Equanimity::Helpers
+  def message(text)
+    @state['message'] = text
+  end
+  # def requires_login!
+  #   unless @current_user = User.find_by_valid_session_key(@state.session_key)
+  #     redirect Index
+  #     throw :halt
+  #   end
+  # end
+end
+
+
 module Equanimity::Controllers
   class Index < R '/'
     def get
+    @current_user = User.find_by_session_key(@state.session_key)
       render :index
     end
   end
 
   class List
     def get
+    @current_user = User.find_by_session_key(@state.session_key)
       @entries = Entry.find(:all)
       render :list
     end
@@ -24,6 +45,7 @@ module Equanimity::Controllers
 
   class Csv
     def get
+    @current_user = User.find_by_session_key(@state.session_key)
       @entries = Entry.find(:all)
       render :csv
     end
@@ -31,6 +53,7 @@ module Equanimity::Controllers
 
   class ChooseNewDay
     def get
+    @current_user = User.find_by_session_key(@state.session_key)
       @day = Date.today
       render :choose_new_day
     end
@@ -41,11 +64,13 @@ module Equanimity::Controllers
 
   class EditDayNNN
     def get(y,m,d)
+    @current_user = User.find_by_session_key(@state.session_key)
       @day= Date.civil(y.to_i,m.to_i,d.to_i)
       @entries = Entry.find(:all)
       render :edit_day
     end
     def post(y,m,d)
+    @current_user = User.find_by_session_key(@state.session_key)
       @day= Date.civil(y.to_i,m.to_i,d.to_i)
 
       # work through input see what we're gonna do
@@ -79,45 +104,106 @@ module Equanimity::Controllers
 
   class NewDay
     def get
+    @current_user = User.find_by_session_key(@state.session_key)
       @day = Date.today
       @entries = Entry.find(:all)
       render :edit_day
     end
   end
+
+  class Account
+    def post
+      if @input['submit'] == 'Logout'
+        if @user = User.find_by_session_key(@state.session_key)
+          @user.get_logged_out
+          message "Successfully logged out #{@user.name}"
+        else
+          message "You were never logged in, brah."
+        end
+      elsif @input['submit'] == 'Login'
+        @user = User.find_by_name_and_password(@input.name, @input.password)
+        if @user
+          @state.session_key = @user.get_logged_in
+          message "Nicely logged in, #{@input.name}."
+        else
+          message "no dice logging in as #{@input.name}"
+        end
+      elsif @input['submit'] == 'New User'
+        @user = User.new(:name => @input.name, 
+                         :password => @input.password)
+        if @user.save
+          @state.session_key = @user.get_logged_in
+          message "welcome to the glories of userhood, #{@input.name}."
+        else
+          message "no luck chuck! #{ @user.errors }"
+        end
+      end
+      redirect Index
+    end
+  end
 end
 
 module Equanimity::Models
+  class User < Base
+    validates_uniqueness_of :name, :message => " has already been taken."
+    def get_logged_in
+      self.session_key = rand(99999999999)
+      save
+      return self.session_key
+    end
+    def get_logged_out
+      self.session_key = nil
+      save
+    end
+  end
 
   class Entry < Base
   end
 
-  class GetStarted < V 1.0
-    def self.up
-      create_table Entry.table_name do | t|
-        t.date :date
-        t.string :key
-        t.float :value
-      end
-    end
-    def self.down
-      drop_table Entry.table_name
-    end
-  end
+  # class GetStarted < V 1.0
+  #   def self.up
+  #     create_table Entry.table_name do | t|
+  #       t.date :date
+  #       t.string :key
+  #       t.float :value
+  #     end
+  #   end
+  #   def self.down
+  #     drop_table Entry.table_name
+  #   end
+  # end
+  # class Continue < V 3.0
+  #   def self.up
+  #     drop_table User.table_name
+  #     create_table User.table_name do |t|
+  #       t.string :name
+  #       t.string :password
+  #       t.string :session_key
+  #     end
+  #   end
+  #   def self.down
+  #     drop_table User.table_name
+  #   end
+  # end
 end
 
 
 module Equanimity::Views
   def layout
+    possessive = ""
+    if @current_user
+      possessive = "#{@current_user.name}'s "
+    end
     html do
       head do
-        title "../|equanimity|\...?"
+        title "../|#{possessive}equanimity|\...?"
       end
       body do
         table  do
           tr do
             td :colspan => 2, :style => "background-color: #AA9" do
               h1 do
-                a  "...(-:equanimity:-)...?" , :href => R(Index)
+                a  "...(-:#{possessive}equanimity:-)...?" , :href => R(Index)
               end
             end
           end
@@ -127,8 +213,33 @@ module Equanimity::Views
               p { a "new entry for when?", :href => R(ChooseNewDay) }
               p { a "list all days", :href => R(List) }
               p { a "csv days", :href => R(Csv) }
+
+    div do
+      form :action => R(Account), :method => :post do
+        if @current_user
+          p "current user is #{current_user.name}"
+          input(:type => :submit, :name => :submit, :value => "Logout")
+        else
+          p "you are not currently logged in."
+          div do
+            text "name: "
+            input(:type => :text, :name => :name)
+          end
+          div do
+            text "password: "
+            input(:type => :password, :name => :password)
+          end
+          input(:type => :submit, :name => :submit, :value => "Login")
+          input(:type => :submit, :name => :submit, :value => "New User")
+        end
+      end
+    end
+
             end
             td :width => '700px',:style => "background-color: #DDC; padding: 30px" do
+              if @state['message']
+                div.message! @state.delete('message')
+              end
               self << yield 
             end
           end
@@ -287,7 +398,7 @@ ENDJS
   end
 end
 
-def Equanimity.create
-  Equanimity::Models.create_schema
-end
+# def Equanimity.create
+#   Equanimity::Models.create_schema
+# end
 
