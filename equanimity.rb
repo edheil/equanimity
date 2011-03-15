@@ -147,7 +147,7 @@ module Equanimity::Models
   class User < Base
     validates_uniqueness_of :name, :message => " has already been taken."
     def get_logged_in
-      self.session_key = "#{rand(99999999999)}"
+      self.session_key = "key-#{rand(99999999999)}"
       save
       return self.session_key
     end
