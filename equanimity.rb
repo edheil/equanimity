@@ -16,29 +16,29 @@ module Equanimity
 end
 
 module Equanimity::Helpers
+  def get_current_user
+    @current_user = Equanimity::Models::User.current_user(@state.session_key)
+  end
   def message(text)
     @state['message'] = text
   end
-  # def requires_login!
-  #   unless @current_user = User.find_by_valid_session_key(@state.session_key)
-  #     redirect Index
-  #     throw :halt
-  #   end
-  # end
 end
 
 
 module Equanimity::Controllers
   class Index < R '/'
     def get
-    @current_user = User.current_user(@state.session_key)
-      render :index
+      if get_current_user
+        render :index
+      else
+        render :login
+      end
     end
   end
 
   class List
     def get
-    @current_user = User.current_user(@state.session_key)
+      get_current_user
       @entries = Entry.find(:all)
       render :list
     end
@@ -46,15 +46,16 @@ module Equanimity::Controllers
 
   class Csv
     def get
-    @current_user = User.current_user(@state.session_key)
+      get_current_user
       @entries = Entry.find(:all)
+      @raw = true
       render :csv
     end
   end
 
   class ChooseNewDay
     def get
-    @current_user = User.current_user(@state.session_key)
+      get_current_user
       @day = Date.today
       render :choose_new_day
     end
@@ -65,13 +66,13 @@ module Equanimity::Controllers
 
   class EditDayNNN
     def get(y,m,d)
-    @current_user = User.current_user(@state.session_key)
+      get_current_user
       @day= Date.civil(y.to_i,m.to_i,d.to_i)
       @entries = Entry.find(:all)
       render :edit_day
     end
     def post(y,m,d)
-    @current_user = User.current_user(@state.session_key)
+      get_current_user
       @day= Date.civil(y.to_i,m.to_i,d.to_i)
 
       # work through input see what we're gonna do
@@ -105,7 +106,7 @@ module Equanimity::Controllers
 
   class NewDay
     def get
-    @current_user = User.current_user(@state.session_key)
+      get_current_user
       @day = Date.today
       @entries = Entry.find(:all)
       render :edit_day
@@ -114,10 +115,35 @@ module Equanimity::Controllers
 
   class ChangePassword
     def get
-      if @current_user = User.current_user(@state.session_key)
+      if get_current_user
         render :change_password
       else
         redirect Index
+      end
+    end
+  end
+
+  class Login
+    def get
+      if get_current_user
+        redirect Index
+      else
+        render :login
+      end
+    end
+  end
+
+  class About
+    def get
+      render :about
+    end
+  end
+  class NewUser
+    def get
+      if get_current_user
+        redirect Index
+      else
+        render :new_user
       end
     end
   end
@@ -200,45 +226,23 @@ module Equanimity::Models
 
   class Entry < Base
   end
-
-  # class GetStarted < V 1.0
-  #   def self.up
-  #     create_table Entry.table_name do | t|
-  #       t.date :date
-  #       t.string :key
-  #       t.float :value
-  #     end
-  #   end
-  #   def self.down
-  #     drop_table Entry.table_name
-  #   end
-  # end
-  # class Continue < V 3.0
-  #   def self.up
-  #     drop_table User.table_name
-  #     create_table User.table_name do |t|
-  #       t.string :name
-  #       t.string :password
-  #       t.string :session_key
-  #     end
-  #   end
-  #   def self.down
-  #     drop_table User.table_name
-  #   end
-  # end
 end
 
 
 module Equanimity::Views
   def layout
+    if @raw
+      self << yield 
+      return
+    end
+
     possessive = ""
     if @current_user
       possessive = "#{@current_user.name}'s "
     end
+
     html do
-      head do
-        title "../|#{possessive}equanimity|\...?"
-      end
+      head { title "../|#{possessive}equanimity|\...?" }
       body do
         table  do
           tr do
@@ -249,30 +253,22 @@ module Equanimity::Views
             end
           end
           tr do
-            td :width => '100px',:style => "background-color: #FFC; padding: 30px" do
-              p { a "new entry for today", :href => R(NewDay)}
-              p { a "new entry for when?", :href => R(ChooseNewDay) }
-              p { a "list all days", :href => R(List) }
-              p { a "csv days", :href => R(Csv) }
-              if @current_user
-                p { a "change password", :href => R(ChangePassword) }
-              end
+            td :width => '200px',:style => "background-color: #FFC; padding: 30px" do
+              div { a "about", :href => R(About) }
+                if @current_user
+                  div { a "new entry for today", :href => R(NewDay)}
+                  div { a "new entry for when?", :href => R(ChooseNewDay) }
+                  div { a "list all days", :href => R(List) }
+                  div { a "csv days", :href => R(Csv) }
+                  div { a "change password", :href => R(ChangePassword) }
+                else
+                  div { a "login", :href => R(Login) }
+                  div { a "new user", :href => R(NewUser) }
+                end
               div do
                 form :action => R(Account), :method => :post do
                   if @current_user
                     input(:type => :submit, :name => :submit, :value => "Logout")
-                  else
-                    p "you are not currently logged in."
-                    div do
-                      text "name: "
-                      input(:type => :text, :name => :name)
-                    end
-                    div do
-                      text "password: "
-                      input(:type => :password, :name => :password)
-                    end
-                    input(:type => :submit, :name => :submit, :value => "Login")
-                    input(:type => :submit, :name => :submit, :value => "New User")
                   end
                 end
               end
@@ -289,8 +285,42 @@ module Equanimity::Views
     end
   end
 
+  def about
+    text "blah blah blah about this app blah blah"
+  end
+
   def index
     h2 "here's the index, yo"
+  end
+
+  def login
+    h2 "Login"
+    form :action => R(Account), :method => :post do
+      div do
+        text "name: "
+        input(:type => :text, :name => :name)
+      end
+      div do
+        text "password: "
+        input(:type => :password, :name => :password)
+      end
+      input(:type => :submit, :name => :submit, :value => "Login")
+    end
+  end
+
+  def new_user
+    h2 "New User"
+    form :action => R(Account), :method => :post do
+      div do
+        text "name: "
+        input(:type => :text, :name => :name)
+      end
+      div do
+        text "password: "
+        input(:type => :password, :name => :password)
+      end
+      input(:type => :submit, :name => :submit, :value => "New User")
+    end
   end
 
   def change_password
