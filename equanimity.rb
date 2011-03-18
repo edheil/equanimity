@@ -38,18 +38,28 @@ module Equanimity::Controllers
 
   class List
     def get
-      get_current_user
-      @entries = Entry.find(:all)
-      render :list
+      redirect R(Index) unless get_current_user
+      @entries = @current_user.entries
+      if @entries.length > 0
+        render :list
+      else
+        message "you have no entries."
+        redirect R(Index)
+      end
     end
   end
 
   class Csv
     def get
       get_current_user
-      @entries = Entry.find(:all)
-      @raw = true
-      render :csv
+      @entries = @current_user.entries
+      if @entries.length > 0
+        @raw = true
+        render :csv
+      else
+        message "you have no entries."
+        redirect R(Index)
+      end
     end
   end
 
@@ -68,7 +78,8 @@ module Equanimity::Controllers
     def get(y,m,d)
       get_current_user
       @day= Date.civil(y.to_i,m.to_i,d.to_i)
-      @entries = Entry.find(:all)
+      @entries = @current_user.entries
+#      @entries = Entry.find(:all)
       render :edit_day
     end
     def post(y,m,d)
@@ -88,14 +99,14 @@ module Equanimity::Controllers
         end
 
         if this_val.to_s.length > 0
-          if e = Entry.find_by_date_and_key(@day, this_key)
+          if e = @current_user.entries.find_by_date_and_key(@day, this_key)
             e.value = this_val
             e.save
           else
-            e = Entry.create(:date => @day, :key => this_key, :value => this_val)
+            e = @current_user.entries.create(:date => @day, :key => this_key, :value => this_val)
           end
         else
-          if e = Entry.find_by_date_and_key(@day, this_key)
+          if e = @current_user.entries.find_by_date_and_key(@day, this_key)
             Entry.delete(e)
           end
         end
@@ -108,7 +119,7 @@ module Equanimity::Controllers
     def get
       get_current_user
       @day = Date.today
-      @entries = Entry.find(:all)
+      @entries = @current_user.entries
       render :edit_day
     end
   end
@@ -196,6 +207,7 @@ end
 
 module Equanimity::Models
   class User < Base
+    has_many :entries
     validates_uniqueness_of :name, :message => " has already been taken."
     def get_logged_in
       self.session_key = "key-#{rand(99999999999)}"
@@ -225,6 +237,7 @@ module Equanimity::Models
   end
 
   class Entry < Base
+    belongs_to :user
   end
 end
 
@@ -357,7 +370,9 @@ module Equanimity::Views
     @keys = @entries.map { |e| e.key }.uniq.sort
     @days = @entries.map { |e| e.date }.uniq.sort
 #    STDERR.print @days.inspect
-
+    puts "days:"
+    puts @days.inspect
+    puts "that was days."
     @all_days = (@days.first .. @days.last).to_a
     
     @charts = {}
@@ -365,7 +380,7 @@ module Equanimity::Views
       maxforkey = @entries.select { |e| e.key == k }.map { |e| e.value }.max
       maxforkey = 10.0 if maxforkey < 10.0
       data = @all_days.map { |d|
-        entry_for_day = @entries.find { |e| e.key == k and e.date == d }
+        entry_for_day = @entries.detect { |e| e.key == k and e.date == d }
         if entry_for_day
           entry_for_day.value
         else
@@ -418,7 +433,7 @@ ENDJS
         td d
         @keys.each do |k|
           td do
-            e4k = @entries.find { |e| e.date == d and  e.key == k } and e4k.value  # this works? wow.
+            e4k = @entries.detect { |e| e.date == d and  e.key == k } and e4k.value  # this works? wow.
           end
         end
         td do
@@ -442,7 +457,7 @@ ENDJS
     @days.each do |d|
       csv << %Q("#{d}")
       @keys.each do |k|
-        maybe_e4k = (e4k = @entries.find { |e| e.date == d and  e.key == k } and e4k.value)
+        maybe_e4k = (e4k = @entries.detect { |e| e.date == d and  e.key == k } and e4k.value)
         csv << %Q(,"#{maybe_e4k}")
       end
       csv << "\n"
