@@ -500,8 +500,16 @@ ENDJS
   end
 end
 
-# def Equanimity.create
-#   Equanimity::Models.create_schema
-# end
+# DATABASE SCHEMA
+#
+# using proper migrations was cramping my dev flow, so I
+# just managed my db manually.  Here's the final schema --
+# for purposes of heroku deployment, you want this to be
+# in a database in the path "db/development_sqlite3"
+# and then you want to push it to heroku with heroku db:push
+#
+# CREATE TABLE `equanimity_users` (`id` integer PRIMARY KEY AUTOINCREMENT, `name` text, `password` text, `session_key` text, `salted_pass` text, `salt` text);
+# CREATE TABLE `equanimity_entries` (`id` integer PRIMARY KEY AUTOINCREMENT, `date` date, `key` varchar(255), `value` double precision, `user_id` integer);
+#
 
 
