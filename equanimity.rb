@@ -255,7 +255,7 @@ module Equanimity::Views
 	 }
 
 	 body { 
-	 margin-left: 0px; margin-top: 0px; margin-right: 0px;;
+	 margin-left: 0px; margin-top: 0px; margin-right: 10px;
 	 background-color: #1e3773;
 	 }
 
@@ -265,26 +265,32 @@ module Equanimity::Views
 	 a:hover {color: #FFF; text-decoration:none }
 
 	 div#header { 
-	 margin: 10px;
+	 margin: 10px 0px 0px 10px;
 	 text-align: center;
 	 background-color: #5b75b1;
 	 }
 
 	 div#main {
+position:relative;
+width:100%;
 	 }
 
 	 div#sidebar {
-	 margin: 10px 10px 10px 10px;
 	 padding: 40px 10px 40px 10px; 
 	 float: left;
 	 background-color: #735fb5;
-	 width: 160px;
+position: absolute;
+top: 10px;
+left: 10px;
+width: 160px;
 	 }
 
 	 div#content {
+position: absolute;
+right: 100px;
+left: 200px;
+top: 10px;
 	 padding: 40px 10px 40px 10px; 
-	 margin: 10px;
-	 float:left;
 	 background-color: #92d0d0;
 	 }
 ENDCSS
@@ -299,12 +305,12 @@ ENDCSS
         style css, :type => "text/css"
       }
       body do
-        div.main! do
-          div.header! do
-            h1 do
-              a  "...(-:#{possessive}equanimity:-)...?" , :href => R(Index)
-            end
+        div.header! do
+          h1 do
+            a  "...(-:#{possessive}equanimity:-)...?" , :href => R(Index)
           end
+        end
+        div.main! do
           div.sidebar! do
             div { a "about", :href => R(About) }
             if @current_user
