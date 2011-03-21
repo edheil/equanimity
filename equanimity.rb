@@ -409,7 +409,6 @@ ENDCSS
     @days = @entries.map { |e| e.date }.uniq.sort
     @all_days = (@days.first .. @days.last).to_a
     
-    @charts = {}
     @keys.each do |k|
       maxforkey = @entries.select { |e| e.key == k }.map { |e| e.value }.max
       maxforkey = 10.0 if maxforkey < 10.0
@@ -422,45 +421,14 @@ ENDCSS
         end
       }
         i = 0
-      url="https://chart.googleapis.com/chart?" +
-        [ "cht=bvg",
-          "chs=1000x200",
-          "chd=t:"+data.join(","),
-          "chds=0.0,#{maxforkey}",
-          "chxt=y,x,x,x,x",
-          "chxr=0,0.0,#{maxforkey},#{maxforkey / 10}",
-          "chxl=1:|"+@all_days.map { |d| d.strftime("%a") }.join("|") +
-          "|2:|"+@all_days.map { |d| d.strftime("%d") }.join("|") +
-          "|3:|"+@all_days.map { |d| d.strftime("%b") }.join("|") +
-          "|4:|"+@all_days.map { |d| d.strftime("%Y") }.join("|")
-        ].join("&")
-      @charts[k] = url
     end
 
 
-    jstemplate = <<ENDJS
-url="%s"
-chart_img = document.getElementById("chart_img");
-chart_img.src=url;
-chart_img.style.display="inline";
-ENDJS
-
     h2 "here's all your days, yo."
-    img :id => "chart_img", :src=>"blah", :onclick => 'this.style.display="none"' ,:style => "display:none"
-
     table
     tr do 
       th "_-'-.day.-'-_"
-      @keys.each { |k| 
-        if @charts[k]
-          th( :onclick => (jstemplate % [@charts[k]]), 
-              :style => "background-color: #AA9") {
-            k  
-          }
-        else
-          th k
-        end
-      }  
+      @keys.each { |k| th( :style => "background-color: #AA9") { k } }  
     end
     @days.each do |d|
       tr do
