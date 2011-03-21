@@ -248,50 +248,88 @@ module Equanimity::Views
       self << yield 
       return
     end
+    css = <<ENDCSS
+	 h1, h2 { 
+	 padding: 0px 0px 0px 0px;
+	 margin: 0px 0px 0px 0px;
+	 }
 
+	 body { 
+	 margin-left: 0px; margin-top: 0px; margin-right: 0px;;
+	 background-color: #1e3773;
+	 }
+
+	 a:link {color: #DDD; text-decoration:none }
+	 a:active {color: #DDD; text-decoration:none }
+	 a:visited {color: #CCC; text-decoration:none }
+	 a:hover {color: #FFF; text-decoration:none }
+
+	 div#header { 
+	 margin: 10px;
+	 text-align: center;
+	 background-color: #5b75b1;
+	 }
+
+	 div#main {
+	 }
+
+	 div#sidebar {
+	 margin: 10px 10px 10px 10px;
+	 padding: 40px 10px 40px 10px; 
+	 float: left;
+	 background-color: #735fb5;
+	 width: 160px;
+	 }
+
+	 div#content {
+	 padding: 40px 10px 40px 10px; 
+	 margin: 10px;
+	 float:left;
+	 background-color: #92d0d0;
+	 }
+ENDCSS
     possessive = ""
     if @current_user
       possessive = "#{@current_user.name}'s "
     end
 
     html do
-      head { title "../|#{possessive}equanimity|\...?" }
+      head { 
+        title "../|#{possessive}equanimity|\...?"
+        style css, :type => "text/css"
+      }
       body do
-        table  do
-          tr do
-            td :colspan => 2, :style => "background-color: #AA9" do
-              h1 do
-                a  "...(-:#{possessive}equanimity:-)...?" , :href => R(Index)
+        div.main! do
+          div.header! do
+            h1 do
+              a  "...(-:#{possessive}equanimity:-)...?" , :href => R(Index)
+            end
+          end
+          div.sidebar! do
+            div { a "about", :href => R(About) }
+            if @current_user
+              div { a "new entry for today", :href => R(NewDay)}
+              div { a "new entry for when?", :href => R(ChooseNewDay) }
+              div { a "list all days", :href => R(List) }
+              div { a "csv days", :href => R(Csv) }
+              div { a "change password", :href => R(ChangePassword) }
+            else
+              div { a "login", :href => R(Login) }
+              div { a "new user", :href => R(NewUser) }
+            end
+            div do
+              form :action => R(Account), :method => :post do
+                if @current_user
+                  input(:type => :submit, :name => :submit, :value => "Logout")
+                end
               end
             end
           end
-          tr do
-            td :width => '200px',:style => "background-color: #FFC; padding: 30px" do
-              div { a "about", :href => R(About) }
-                if @current_user
-                  div { a "new entry for today", :href => R(NewDay)}
-                  div { a "new entry for when?", :href => R(ChooseNewDay) }
-                  div { a "list all days", :href => R(List) }
-                  div { a "csv days", :href => R(Csv) }
-                  div { a "change password", :href => R(ChangePassword) }
-                else
-                  div { a "login", :href => R(Login) }
-                  div { a "new user", :href => R(NewUser) }
-                end
-              div do
-                form :action => R(Account), :method => :post do
-                  if @current_user
-                    input(:type => :submit, :name => :submit, :value => "Logout")
-                  end
-                end
-              end
+          div.content! do
+            if @state['message']
+              div.message! @state.delete('message')
             end
-            td :width => '700px',:style => "background-color: #DDC; padding: 30px" do
-              if @state['message']
-                div.message! @state.delete('message')
-              end
-              self << yield 
-            end
+            self << yield 
           end
         end
       end
@@ -369,10 +407,6 @@ module Equanimity::Views
   def list
     @keys = @entries.map { |e| e.key }.uniq.sort
     @days = @entries.map { |e| e.date }.uniq.sort
-#    STDERR.print @days.inspect
-    puts "days:"
-    puts @days.inspect
-    puts "that was days."
     @all_days = (@days.first .. @days.last).to_a
     
     @charts = {}
