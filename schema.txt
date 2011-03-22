@@ -1,0 +1,2 @@
+CREATE TABLE `equanimity_users` (`id` integer PRIMARY KEY AUTOINCREMENT, `name` text, `password` text, `session_key` text, `salted_pass` text, `salt` text);
+CREATE TABLE `equanimity_entries` (`id` integer PRIMARY KEY AUTOINCREMENT, `date` date, `key` varchar(255), `value` double precision, `user_id` integer);
