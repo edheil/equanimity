@@ -203,6 +203,23 @@ module Equanimity::Controllers
       redirect Index
     end
   end
+
+  # STATIC CONTROLLER
+
+
+  class Static < R '/public/(.+)'
+    MIME_TYPES = {'.css' => 'text/css', '.js' => 'text/javascript', '.jpg' => 'image/jpeg'}
+    PATH = File.expand_path(File.dirname(__FILE__))
+    def get(path)
+      @headers['Content-Type'] = MIME_TYPES[path[/\.\w+$/, 0]] || "text/plain"
+      unless path.include? ".." # prevent directory traversal attacks
+        @headers['X-Sendfile'] = "#{PATH}/public/#{path}"
+      else
+        @status = "403"
+        "403 - Invalid path"
+      end
+    end
+  end
 end
 
 module Equanimity::Models
@@ -256,16 +273,21 @@ module Equanimity::Views
     html do
       head { 
         title "../|#{possessive}equanimity|\...?"
-        link :rel => 'stylesheet', :href => 'public/equanimity.css',:type => "text/css"
+        link :rel => 'stylesheet', :href => '/public/blueprint/screen.css',:type => "text/css", :media => "screen, projection"
+#        link :rel => 'stylesheet', :href => 'public/blueprint/print.css',:type => "text/css", :media => "print"
+#        text "<!--[if lt IE 8]>"
+#        link :rel => 'stylesheet', :href => 'public/blueprint/ie.css',:type => "text/css", :media => "screen, projection"
+#        text "<![endif]-->"
       }
       body do
-        div.header! do
-          h1 do
-            a  "...(-:#{possessive}equanimity:-)...?" , :href => R(Index)
+#        div :class => "container showgrid" do
+        div :class => "container" do
+          div :class => "column span-24 last" do
+            h1 do
+              a  "...(-:#{possessive}equanimity:-)...?" , :href => R(Index)
+            end
           end
-        end
-        div.main! do
-          div.sidebar! do
+          div :class => "column span-4" do
             div { a "about", :href => R(About) }
             if @current_user
               div { a "new entry for today", :href => R(NewDay)}
@@ -285,7 +307,7 @@ module Equanimity::Views
               end
             end
           end
-          div.content! do
+          div :class => "column span-20 last" do
             if @state['message']
               div.message! @state.delete('message')
             end
