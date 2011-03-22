@@ -6,7 +6,7 @@ require 'camping/session'
 require 'digest/sha1'
 
 dbconfig = YAML.load(File.read('config/database.yml'))
-ActiveRecord::Base.establish_connection dbconfig['production']
+ActiveRecord::Base.establish_connection dbconfig['development']
 
 Camping.goes :Equanimity
 
@@ -203,19 +203,6 @@ module Equanimity::Controllers
       redirect Index
     end
   end
-    class Static < R '/public/(.+)'
-    MIME_TYPES = {'.css' => 'text/css', '.js' => 'text/javascript', '.jpg' => 'image/jpeg'}
-    PATH = File.expand_path(File.dirname(__FILE__))
-    def get(path)
-      @headers['Content-Type'] = MIME_TYPES[path[/\.\w+$/, 0]] || "text/plain"
-      unless path.include? ".." # prevent directory traversal attacks
-        @headers['X-Sendfile'] = "#{PATH}/public/#{path}"
-      else
-        @status = "403"
-        "403 - Invalid path"
-      end
-    end
-  end
 end
 
 module Equanimity::Models
@@ -261,54 +248,6 @@ module Equanimity::Views
       self << yield 
       return
     end
-    css = <<ENDCSS
-h1, h2 { 
-    padding: 0px 0px 0px 0px;
-    margin: 0px 0px 0px 0px;
-}
-
-body { 
-    margin-left: 0px; margin-top: 0px; margin-right: 10px;
-    background-color: #1e3773;
-}
-
-a:link {color: #DDD; text-decoration:none }
-a:active {color: #DDD; text-decoration:none }
-a:visited {color: #CCC; text-decoration:none }
-a:hover {color: #FFF; text-decoration:none }
-
-div#header { 
-    margin: 10px 0px 0px 10px;
-    text-align: center;
-    background-color: #5b75b1;
-}
-
-div#main {
-    position:relative;
-    width:100%;
-}
-
-div#sidebar {
-    padding: 40px 10px 40px 10px; 
-    float: left;
-    background-color: #735fb5;
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    width: 160px;
-}
-
-div#content {
-    position: absolute;
-    right: 100px;
-    left: 200px;
-    top: 10px;
-    padding: 40px 10px 40px 10px; 
-    background-color: #92d0d0;
-}
-
-
-ENDCSS
     possessive = ""
     if @current_user
       possessive = "#{@current_user.name}'s "
@@ -317,8 +256,7 @@ ENDCSS
     html do
       head { 
         title "../|#{possessive}equanimity|\...?"
-        style css, :type => "text/css"
-#        link :rel => 'stylesheet', :href => 'public/equanimity.css',:type => "text/css"
+        link :rel => 'stylesheet', :href => 'public/equanimity.css',:type => "text/css"
       }
       body do
         div.header! do
