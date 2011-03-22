@@ -203,13 +203,13 @@ module Equanimity::Controllers
       redirect Index
     end
   end
-    class Static < R '/static/(.+)'
+    class Static < R '/public/(.+)'
     MIME_TYPES = {'.css' => 'text/css', '.js' => 'text/javascript', '.jpg' => 'image/jpeg'}
     PATH = File.expand_path(File.dirname(__FILE__))
     def get(path)
       @headers['Content-Type'] = MIME_TYPES[path[/\.\w+$/, 0]] || "text/plain"
       unless path.include? ".." # prevent directory traversal attacks
-        @headers['X-Sendfile'] = "#{PATH}/static/#{path}"
+        @headers['X-Sendfile'] = "#{PATH}/public/#{path}"
       else
         @status = "403"
         "403 - Invalid path"
@@ -272,7 +272,7 @@ ENDCSS
       head { 
         title "../|#{possessive}equanimity|\...?"
 #        style css, :type => "text/css"
-        link :rel => 'stylesheet', :href => 'static/equanimity.css',:type => "text/css"
+        link :rel => 'stylesheet', :href => 'public/equanimity.css',:type => "text/css"
       }
       body do
         div.header! do
