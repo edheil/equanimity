@@ -6,7 +6,7 @@ require 'camping/session'
 require 'digest/sha1'
 
 dbconfig = YAML.load(File.read('config/database.yml'))
-ActiveRecord::Base.establish_connection dbconfig['development']
+ActiveRecord::Base.establish_connection dbconfig['production']
 
 Camping.goes :Equanimity
 
