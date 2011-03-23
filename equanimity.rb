@@ -16,8 +16,16 @@ module Equanimity
 end
 
 module Equanimity::Helpers
-  def get_current_user
+  def get_current_user(args={})
     @current_user = Equanimity::Models::User.current_user(@state.session_key)
+    if args[:or_goto]
+      unless @current_user
+        redirect R(args[:or_goto])
+        throw :halt
+      end
+    else
+      @current_user
+    end
   end
   def message(text)
     @state['message'] = text
@@ -38,7 +46,14 @@ module Equanimity::Controllers
 
   class List
     def get
-      redirect R(Index) unless get_current_user
+      get_current_user :or_goto => Index
+      unless @current_user
+        if args[:with_message]
+          message args[:with_message]
+        end
+        redirect R(Index)
+        throw :halt
+      end
       @entries = @current_user.entries
       if @entries.length > 0
         render :list
@@ -51,7 +66,7 @@ module Equanimity::Controllers
 
   class Csv
     def get
-      get_current_user
+      get_current_user :or_goto => Index
       @entries = @current_user.entries
       if @entries.length > 0
         @raw = true
@@ -65,7 +80,7 @@ module Equanimity::Controllers
 
   class ChooseNewDay
     def get
-      get_current_user
+      get_current_user :or_goto => Index
       @day = Date.today
       render :choose_new_day
     end
@@ -76,14 +91,13 @@ module Equanimity::Controllers
 
   class EditDayNNN
     def get(y,m,d)
-      get_current_user
+      get_current_user :or_goto => Index
       @day= Date.civil(y.to_i,m.to_i,d.to_i)
       @entries = @current_user.entries
-#      @entries = Entry.find(:all)
       render :edit_day
     end
     def post(y,m,d)
-      get_current_user
+      get_current_user :or_goto => Index
       @day= Date.civil(y.to_i,m.to_i,d.to_i)
 
       # work through input see what we're gonna do
@@ -117,7 +131,7 @@ module Equanimity::Controllers
 
   class NewDay
     def get
-      get_current_user
+      get_current_user :or_goto => Index
       @day = Date.today
       @entries = @current_user.entries
       render :edit_day
@@ -126,11 +140,8 @@ module Equanimity::Controllers
 
   class ChangePassword
     def get
-      if get_current_user
-        render :change_password
-      else
-        redirect Index
-      end
+      get_current_user :or_goto => Index
+      render :change_password
     end
   end
 
@@ -224,6 +235,7 @@ end
 
 module Equanimity::Models
   class User < Base
+#    has_many :entries, :order => 'date'
     has_many :entries
     validates_uniqueness_of :name, :message => " has already been taken."
     def get_logged_in
@@ -274,13 +286,12 @@ module Equanimity::Views
       head { 
         title "../|#{possessive}equanimity|\...?"
         link :rel => 'stylesheet', :href => '/public/blueprint/screen.css',:type => "text/css", :media => "screen, projection"
-#        link :rel => 'stylesheet', :href => 'public/blueprint/print.css',:type => "text/css", :media => "print"
-#        text "<!--[if lt IE 8]>"
-#        link :rel => 'stylesheet', :href => 'public/blueprint/ie.css',:type => "text/css", :media => "screen, projection"
-#        text "<![endif]-->"
+        link :rel => 'stylesheet', :href => 'public/blueprint/print.css',:type => "text/css", :media => "print"
+        text "<!--[if lt IE 8]>"
+        link :rel => 'stylesheet', :href => 'public/blueprint/ie.css',:type => "text/css", :media => "screen, projection"
+        text "<![endif]-->"
       }
       body do
-#        div :class => "container showgrid" do
         div :class => "container" do
           div :class => "column span-24 last" do
             h1 do
@@ -387,6 +398,7 @@ module Equanimity::Views
 
 
   def list
+    p @entries
     @keys = @entries.map { |e| e.key }.uniq.sort
     @days = @entries.map { |e| e.date }.uniq.sort
     @all_days = (@days.first .. @days.last).to_a
@@ -402,11 +414,9 @@ module Equanimity::Views
           "_"
         end
       }
-        i = 0
     end
 
 
-    h2 "here's all your days, yo."
     table
     tr do 
       th "_-'-.day.-'-_"
@@ -485,7 +495,7 @@ module Equanimity::Views
 end
 
 # DATABASE SCHEMA
-#
+
 # using proper migrations was cramping my dev flow, so I
 # just managed my db manually.  Here's the final schema --
 # for purposes of heroku deployment, you want this to be
