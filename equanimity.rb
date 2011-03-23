@@ -107,7 +107,6 @@ module Equanimity::Controllers
         if /scale_/.match(k)
           scale_id = (k.sub(/scale_/, '').to_i)
           scale = Scale.find(scale_id)
-          p "got scale #{scale.inspect}"
           if @input[k].length > 0
             if e = scale.entries.find_by_date(@day)
               e.value = @input[k].to_i
@@ -117,18 +116,21 @@ module Equanimity::Controllers
               e = scale.entries.new(:date => @day,
                                     :value => @input[k].to_i)
               e.save
-              puts "saved entry #{e.inspect}."
             end
-          else
+          else # zero length
             if e = scale.entries.find_by_date(@day)
-              scale.entries.delete(e)
+              Entry.delete(e)
+            end
+            if scale.entries.length == 0 # that was the last entry
+              Scale.delete(scale)
             end
           end
         elsif k == 'new_scale' and @input['new_scale'].length > 0
           new_scale_name = @input['new_scale']
           new_scale_val = @input['new_value'].to_i
-          new_scale_max = [this_val, 10].max
+          new_scale_max = [new_scale_val, 10].max
           # better make one, quick!
+          current_scales = @current_user.scales
           new_scale = @current_user.scales.new(:name => new_scale_name,
                                                :max => new_scale_max)
           new_scale.save
@@ -282,7 +284,7 @@ module Equanimity::Models
     belongs_to :scale
   end
   class Scale < Base
-    validates_uniqueness_of :name, :scope => :user
+    validates_uniqueness_of :name, :scope => :user_id
     belongs_to :user
     has_many :entries
   end
@@ -516,8 +518,7 @@ end
 # in a database in the path "db/development_sqlite3"
 # and then you want to push it to heroku with heroku db:push
 #
-# CREATE TABLE `equanimity_users` (`id` integer PRIMARY KEY AUTOINCREMENT, `name` text, `password` text, `session_key` text, `salted_pass` text, `salt` text);
-# CREATE TABLE `equanimity_entries` (`id` integer PRIMARY KEY AUTOINCREMENT, `date` date, `key` varchar(255), `value` double precision, `user_id` integer);
-#
-
-
+# CREATE TABLE `equanimity_entries` (`id` integer PRIMARY KEY AUTOINCREMENT, `date` date, scale_id integer, `value` integer);
+# CREATE TABLE equanimity_scales (`id` integer PRIMARY KEY AUTOINCREMENT, `name` varchar(255), `max` integer, `user_id` integer);
+# CREATE TABLE `equanimity_schema_infos` (`id` integer PRIMARY KEY AUTOINCREMENT, `version` double precision);
+# CREATE TABLE `equanimity_users` (`id` integer PRIMARY KEY AUTOINCREMENT, `name` text, `session_key` text, `salted_pass` text, `salt` text);
