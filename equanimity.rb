@@ -54,6 +54,7 @@ module Equanimity::Controllers
         redirect R(Index)
         throw :halt
       end
+      @scales = @current_user.scales
       @entries = @current_user.entries
       if @entries.length > 0
         render :list
@@ -68,6 +69,7 @@ module Equanimity::Controllers
     def get
       get_current_user :or_goto => Index
       @entries = @current_user.entries
+      @scales = @current_user.scales
       if @entries.length > 0
         @raw = true
         render :csv
@@ -93,7 +95,6 @@ module Equanimity::Controllers
     def get(y,m,d)
       get_current_user :or_goto => Index
       @day= Date.civil(y.to_i,m.to_i,d.to_i)
-      @entries = @current_user.entries
       render :edit_day
     end
     def post(y,m,d)
@@ -103,26 +104,37 @@ module Equanimity::Controllers
       # work through input see what we're gonna do
 
       @input.keys.each do |k|
-        this_key, this_val = nil, nil
-        if /key_/.match(k)
-          this_key = k.sub(/key_/, '')
-          this_val = @input[k]
-        elsif k == 'new_key'
-          this_key = @input['new_key']
-          this_val = @input['new_value']
-        end
-
-        if this_val.to_s.length > 0
-          if e = @current_user.entries.find_by_date_and_key(@day, this_key)
-            e.value = this_val
-            e.save
+        if /scale_/.match(k)
+          scale_id = (k.sub(/scale_/, '').to_i)
+          scale = Scale.find(scale_id)
+          p "got scale #{scale.inspect}"
+          if @input[k].length > 0
+            if e = scale.entries.find_by_date(@day)
+              e.value = @input[k].to_i
+              e.save
+            else
+              puts "creating new entry."
+              e = scale.entries.new(:date => @day,
+                                    :value => @input[k].to_i)
+              e.save
+              puts "saved entry #{e.inspect}."
+            end
           else
-            e = @current_user.entries.create(:date => @day, :key => this_key, :value => this_val)
+            if e = scale.entries.find_by_date(@day)
+              scale.entries.delete(e)
+            end
           end
-        else
-          if e = @current_user.entries.find_by_date_and_key(@day, this_key)
-            Entry.delete(e)
-          end
+        elsif k == 'new_scale' and @input['new_scale'].length > 0
+          new_scale_name = @input['new_scale']
+          new_scale_val = @input['new_value'].to_i
+          new_scale_max = [this_val, 10].max
+          # better make one, quick!
+          new_scale = @current_user.scales.new(:name => new_scale_name,
+                                               :max => new_scale_max)
+          new_scale.save
+          # add entry
+          e = new_scale.entries.new(:date => @day,
+                                    :value => new_scale_val);
         end
       end
       redirect EditDayNNN, y, m, d
@@ -235,8 +247,8 @@ end
 
 module Equanimity::Models
   class User < Base
-#    has_many :entries, :order => 'date'
-    has_many :entries
+    has_many :entries, :through => :scales, :order => 'date'
+    has_many :scales, :order => 'name'
     validates_uniqueness_of :name, :message => " has already been taken."
     def get_logged_in
       self.session_key = "key-#{rand(99999999999)}"
@@ -267,6 +279,12 @@ module Equanimity::Models
 
   class Entry < Base
     belongs_to :user
+    belongs_to :scale
+  end
+  class Scale < Base
+    validates_uniqueness_of :name, :scope => :user
+    belongs_to :user
+    has_many :entries
   end
 end
 
@@ -398,16 +416,15 @@ module Equanimity::Views
 
 
   def list
-    p @entries
-    @keys = @entries.map { |e| e.key }.uniq.sort
-    @days = @entries.map { |e| e.date }.uniq.sort
+
+    # TODO:
+    @days = @entries.map { |e| e.date }.uniq
     @all_days = (@days.first .. @days.last).to_a
-    
-    @keys.each do |k|
-      maxforkey = @entries.select { |e| e.key == k }.map { |e| e.value }.max
-      maxforkey = 10.0 if maxforkey < 10.0
+    @scales.each do |s|
+      k = s.name
+      maxforkey = s.max
       data = @all_days.map { |d|
-        entry_for_day = @entries.detect { |e| e.key == k and e.date == d }
+        entry_for_day = @entries.detect { |e| e.scale_id == s.id and e.date == d }
         if entry_for_day
           entry_for_day.value
         else
@@ -416,18 +433,17 @@ module Equanimity::Views
       }
     end
 
-
     table
     tr do 
       th "_-'-.day.-'-_"
-      @keys.each { |k| th( :style => "background-color: #AA9") { k } }  
+      @scales.each { |s| th( :style => "background-color: #AA9") { s.name } }  
     end
     @days.each do |d|
       tr do
         td d
-        @keys.each do |k|
+        @scales.each do |s|
           td do
-            e4k = @entries.detect { |e| e.date == d and  e.key == k } and e4k.value  # this works? wow.
+            e4k = @entries.detect { |e| e.date == d and  e.scale == s } and e4k.value  # this works? wow.
           end
         end
         td do
@@ -438,20 +454,19 @@ module Equanimity::Views
   end
 
   def csv
-    @keys = @entries.map { |e| e.key }.uniq.sort
-    @days = @entries.map { |e| e.date }.uniq.sort
+    @days = @entries.map { |e| e.date }.uniq
     @all_days = (@days.first .. @days.last).to_a
     
     csv = %Q("day")
-    @keys.each { |k| 
-      csv << %Q(,"#{k}")
+    @scales.each { |s| 
+      csv << %Q(,"#{s.name}")
     }  
     csv << "\n";
   
     @days.each do |d|
       csv << %Q("#{d}")
-      @keys.each do |k|
-        maybe_e4k = (e4k = @entries.detect { |e| e.date == d and  e.key == k } and e4k.value)
+      @scales.each do |s|
+        maybe_e4k = (e4k = @entries.detect { |e| e.date == d and  e.scale == s } and e4k.value)
         csv << %Q(,"#{maybe_e4k}")
       end
       csv << "\n"
@@ -463,29 +478,28 @@ module Equanimity::Views
   end
 
   def edit_day
-    @keys = @entries.map { |e| e.key }.uniq.sort
 
     h2 "it's a new day, yo: #{@day}"
     form :action => R(EditDayNNN, @day.year, @day.month, @day.day), :method => :post, :name => 'oldattrs' do
       table do
-        @keys.each do | k |
-          key_name = "key_#{k}"
-          entries_with_this_key = @entries.select { |e| e.key == k }
-          existing_entry = entries_with_this_key.detect { |e| e.date == @day }
+        @current_user.scales.each do | s |
+          scale_input_name = "scale_#{s.id}"
+          entries_with_this_scale = s.entries
+          existing_entry = entries_with_this_scale.detect { |e| e.date == @day }
           current_value = if existing_entry; existing_entry.value; else; ''; end
-          old_values = entries_with_this_key.map { |e| e.value }.uniq.sort
+          old_values = entries_with_this_scale.map { |e| e.value }.uniq.sort
           tr do
-            td k
-            td { input :name => key_name, :value => current_value }
+            td s.name
+            td { input :name => scale_input_name, :value => current_value }
             old_values.each do | v |
-              td v, :onclick => "document.forms['oldattrs'].elements['#{key_name}'].value='#{v}'" ,  :style => "background-color: lightblue"
+              td v, :onclick => "document.forms['oldattrs'].elements['#{scale_input_name}'].value='#{v}'" ,  :style => "background-color: lightblue"
             end
-            td 'clear', :onclick => "document.forms['oldattrs'].elements['#{key_name}'].value=''" ,  :style => "background-color: pink"
+            td 'clear', :onclick => "document.forms['oldattrs'].elements['#{scale_input_name}'].value=''" ,  :style => "background-color: pink"
           end
         end
 
         tr do
-          td {input :name => 'new_key'}
+          td {input :name => 'new_scale'}
           td {input :name => 'new_value'}
         end
       end
