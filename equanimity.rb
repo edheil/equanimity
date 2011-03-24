@@ -513,9 +513,9 @@ ENDJS
     form :action => R(EditDayNNN, @day.year, @day.month, @day.day), :method => :post, :name => 'oldattrs' do
       table do
         tr do
-          td "Scale"
-          td "Integer value"
-          td  "Click to repeat an old value or to clear", :colspan => 12
+          th "Scale"
+          th "Integer value"
+          th  "Click to repeat an old value or to clear", :colspan => 12
         end
         @current_user.scales.each do | s |
           scale_input_name = "scale_#{s.id}"
