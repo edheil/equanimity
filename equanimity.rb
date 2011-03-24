@@ -83,7 +83,8 @@ module Equanimity::Controllers
   class ChooseNewDay
     def get
       get_current_user :or_goto => Index
-      @day = Date.today
+      today = Date.today
+      @day = @current_user.days.find_or_initialize_by_date(today)
       render :choose_new_day
     end
     def post
@@ -94,12 +95,14 @@ module Equanimity::Controllers
   class EditDayNNN
     def get(y,m,d)
       get_current_user :or_goto => Index
-      @day= Date.civil(y.to_i,m.to_i,d.to_i)
+      the_day= Date.civil(y.to_i,m.to_i,d.to_i)
+      @day = @current_user.days.find_or_initialize_by_date(the_day)
       render :edit_day
     end
     def post(y,m,d)
       get_current_user :or_goto => Index
-      @day= Date.civil(y.to_i,m.to_i,d.to_i)
+      the_day= Date.civil(y.to_i,m.to_i,d.to_i)
+      @day = @current_user.days.find_or_initialize_by_date(the_day)
 
       # work through input see what we're gonna do
 
@@ -108,17 +111,17 @@ module Equanimity::Controllers
           scale_id = (k.sub(/scale_/, '').to_i)
           scale = Scale.find(scale_id)
           if @input[k].length > 0
-            if e = scale.entries.find_by_date(@day)
+            if e = scale.entries.find_by_day_id(@day)
               e.value = @input[k].to_i
               e.save
             else
               puts "creating new entry."
-              e = scale.entries.new(:date => @day,
+              e = scale.entries.new(:day => @day,
                                     :value => @input[k].to_i)
               e.save
             end
           else # zero length
-            if e = scale.entries.find_by_date(@day)
+            if e = scale.entries.find_by_day_id(@day)
               Entry.delete(e)
             end
             if scale.entries.length == 0 # that was the last entry
@@ -135,7 +138,7 @@ module Equanimity::Controllers
                                                :max => new_scale_max)
           new_scale.save
           # add entry
-          e = new_scale.entries.new(:date => @day,
+          e = new_scale.entries.new(:day_id => @day,
                                     :value => new_scale_val);
         end
       end
@@ -146,7 +149,9 @@ module Equanimity::Controllers
   class NewDay
     def get
       get_current_user :or_goto => Index
-      @day = Date.today
+      today = Date.today
+      @day = @current_user.days.find_or_initialize_by_date(today)
+#      @day = @current_user.days.find_or_create_by_date(today)
       @entries = @current_user.entries
       render :edit_day
     end
@@ -248,9 +253,16 @@ module Equanimity::Controllers
 end
 
 module Equanimity::Models
+  class Day < Base
+    has_many :entries
+    def year; self.date.year; end
+    def month; self.date.month; end
+    def day; self.date.day; end
+  end
   class User < Base
-    has_many :entries, :through => :scales, :order => 'date'
+    has_many :entries, :through => :scales
     has_many :scales, :order => 'name'
+    has_many :days, :order => 'date'
     validates_uniqueness_of :name, :message => " has already been taken."
     def get_logged_in
       self.session_key = "key-#{rand(99999999999)}"
@@ -282,6 +294,7 @@ module Equanimity::Models
   class Entry < Base
     belongs_to :user
     belongs_to :scale
+    belongs_to :day
   end
   class Scale < Base
     validates_uniqueness_of :name, :scope => :user_id
@@ -418,22 +431,7 @@ module Equanimity::Views
 
 
   def list
-
-    # TODO:
-    @days = @entries.map { |e| e.date }.uniq
-    @all_days = (@days.first .. @days.last).to_a
-    @scales.each do |s|
-      k = s.name
-      maxforkey = s.max
-      data = @all_days.map { |d|
-        entry_for_day = @entries.detect { |e| e.scale_id == s.id and e.date == d }
-        if entry_for_day
-          entry_for_day.value
-        else
-          "_"
-        end
-      }
-    end
+    @days = @current_user.days
 
     table
     tr do 
@@ -442,10 +440,11 @@ module Equanimity::Views
     end
     @days.each do |d|
       tr do
-        td d
+        td d.date
         @scales.each do |s|
           td do
-            e4k = @entries.detect { |e| e.date == d and  e.scale == s } and e4k.value  # this works? wow.
+            entry = s.entries.find(:first, :conditions => { :day_id => d })
+            entry and entry.value
           end
         end
         td do
@@ -456,9 +455,7 @@ module Equanimity::Views
   end
 
   def csv
-    @days = @entries.map { |e| e.date }.uniq
-    @all_days = (@days.first .. @days.last).to_a
-    
+    @days = @current_user.days
     csv = %Q("day")
     @scales.each { |s| 
       csv << %Q(,"#{s.name}")
@@ -466,10 +463,10 @@ module Equanimity::Views
     csv << "\n";
   
     @days.each do |d|
-      csv << %Q("#{d}")
+      csv << %Q("#{d.date}")
       @scales.each do |s|
-        maybe_e4k = (e4k = @entries.detect { |e| e.date == d and  e.scale == s } and e4k.value)
-        csv << %Q(,"#{maybe_e4k}")
+        entry = s.entries.find(:first, :conditions => { :day_id => d })
+        csv << %Q(,"#{entry and entry.value}")
       end
       csv << "\n"
     end
@@ -480,14 +477,13 @@ module Equanimity::Views
   end
 
   def edit_day
-
-    h2 "it's a new day, yo: #{@day}"
+    h2 "it's a new day, yo: #{@day.date}"
     form :action => R(EditDayNNN, @day.year, @day.month, @day.day), :method => :post, :name => 'oldattrs' do
       table do
         @current_user.scales.each do | s |
           scale_input_name = "scale_#{s.id}"
           entries_with_this_scale = s.entries
-          existing_entry = entries_with_this_scale.detect { |e| e.date == @day }
+          existing_entry = entries_with_this_scale.detect { |e| e.day == @day }
           current_value = if existing_entry; existing_entry.value; else; ''; end
           old_values = entries_with_this_scale.map { |e| e.value }.uniq.sort
           tr do
@@ -513,12 +509,14 @@ end
 # DATABASE SCHEMA
 
 # using proper migrations was cramping my dev flow, so I
-# just managed my db manually.  Here's the final schema --
+# just managed my db manually, which was occasionally hairy
+# but extremely educational.  Here's the final schema --
 # for purposes of heroku deployment, you want this to be
 # in a database in the path "db/development_sqlite3"
 # and then you want to push it to heroku with heroku db:push
 #
-# CREATE TABLE `equanimity_entries` (`id` integer PRIMARY KEY AUTOINCREMENT, `date` date, scale_id integer, `value` integer);
-# CREATE TABLE equanimity_scales (`id` integer PRIMARY KEY AUTOINCREMENT, `name` varchar(255), `max` integer, `user_id` integer);
-# CREATE TABLE `equanimity_schema_infos` (`id` integer PRIMARY KEY AUTOINCREMENT, `version` double precision);
-# CREATE TABLE `equanimity_users` (`id` integer PRIMARY KEY AUTOINCREMENT, `name` text, `session_key` text, `salted_pass` text, `salt` text);
+#CREATE TABLE `equanimity_days` (`id` integer PRIMARY KEY AUTOINCREMENT, `date` date, `user_id` integer);
+#CREATE TABLE `equanimity_entries` (`id` integer PRIMARY KEY AUTOINCREMENT, `day_id` integer, `scale_id` integer, `value` integer);
+#CREATE TABLE `equanimity_scales` (`id` integer PRIMARY KEY AUTOINCREMENT, `name` varchar(255), `max` integer, `user_id` integer);
+#CREATE TABLE `equanimity_schema_infos` (`id` integer PRIMARY KEY AUTOINCREMENT, `version` double precision);
+#CREATE TABLE `equanimity_users` (`id` integer PRIMARY KEY AUTOINCREMENT, `name` text, `session_key` text, `salted_pass` text, `salt` text);
