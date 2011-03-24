@@ -535,7 +535,7 @@ ENDJS
 
         tr do
           td {
-            "New scale:"
+            text "New scale: "
             input :name => 'new_scale'
           }
           td {input :name => 'new_value'}
