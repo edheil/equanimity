@@ -323,6 +323,22 @@ module Equanimity::Views
         text "<!--[if lt IE 8]>"
         link :rel => 'stylesheet', :href => 'public/blueprint/ie.css',:type => "text/css", :media => "screen, projection"
         text "<![endif]-->"
+        script "", :type => "text/javascript", :src => 'http://code.jquery.com/jquery-1.5.1.min.js'
+        script do <<ENDJS
+$(document).ready(function(){
+eq = {
+  'hide_scale' : function(class) {
+      $('*.'+class).hide();
+      $('*.hidden_'+class).show();
+  },
+  'show_scale' : function(class) {
+      $('*.hidden_'+class).hide();
+      $('*.'+class).show();
+  }
+};
+});
+ENDJS
+        end
       }
       body do
         div :class => "container" do
@@ -429,20 +445,36 @@ module Equanimity::Views
   end
  
 
-
   def list
     @days = @current_user.days
+    table do
+      tr do
+        @scales.each do |s|
+          scale_id = "scale_#{s.id}"
+          td( :style => "background-color: #EEE; display:none", :class => 'hidden_'+scale_id, 
+              :onclick => "eq.show_scale('#{scale_id}')") { 
+            "hidden: #{s.name}"
+          } 
+        end
+      end
+    end
 
     table
     tr do 
       th "_-'-.day.-'-_"
-      @scales.each { |s| th( :style => "background-color: #AA9") { s.name } }  
+      @scales.each { |s| 
+        scale_id = "scale_#{s.id}"
+        th( :style => "background-color: #AA9", :class => scale_id, 
+            :onclick => "eq.hide_scale('#{scale_id}')") { 
+          s.name
+        } 
+      }  
     end
     @days.each do |d|
       tr do
         td d.date
         @scales.each do |s|
-          td do
+          td :class => "scale_#{s.id}" do
             entry = s.entries.find(:first, :conditions => { :day_id => d })
             entry and entry.value
           end
