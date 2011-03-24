@@ -1,7 +1,7 @@
 * Equanimity
 
 ...is a personal life tracker, for tracking anything in your life that
-can be qu antified with a floating point number and a tag.  It is a
+can be qu antified with an integer and a tag.  It is a
 work in progress.
 
 It uses _whytheluckystiff's [[http://camping.rubyforge.org/][Camping]] framework.
