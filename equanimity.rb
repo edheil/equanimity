@@ -176,6 +176,7 @@ module Equanimity::Controllers
 
   class About
     def get
+      get_current_user
       render :about
     end
   end
