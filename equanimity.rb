@@ -201,7 +201,7 @@ module Equanimity::Controllers
         end
       elsif @input['submit'] == 'Change Password'
         if @user = User.current_user(@state.session_key) 
-          if @user.valid_pass?( @input.old_password )
+          if @user and @user.valid_pass?( @input.old_password )
             @user.set_pass( @input.new_password )
             @user.save
             message "Successfully changed password."
@@ -214,7 +214,7 @@ module Equanimity::Controllers
         redirect R(Index)
       elsif @input['submit'] == 'Login'
         @user = User.find_by_name(@input.name)
-        @user = nil unless @user.valid_pass?( @input.password )
+        @user = nil unless @user and @user.valid_pass?( @input.password )
         if @user
           @state.session_key = @user.get_logged_in
           message "Nicely logged in, #{@input.name}."
